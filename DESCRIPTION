@@ -1,4 +1,4 @@
-Package: ComplexUpset
+Package: ComplexUpset.CCBR
 Type: Package
 Title: Create Complex UpSet Plots Using 'ggplot2' Components
 Version: 1.3.6
@@ -29,5 +29,5 @@ Imports:
     scales,
     colorspace
 VignetteBuilder: knitr
-RoxygenNote: 7.2.1
+RoxygenNote: 7.3.2
 Roxygen: list(markdown = TRUE)

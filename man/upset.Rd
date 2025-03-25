@@ -22,6 +22,7 @@ upset(
   guides = NULL,
   encode_sets = TRUE,
   matrix = intersection_matrix(),
+  add_custom_rows = list(),
   ...
 )
 }
@@ -63,6 +64,8 @@ upset(
 \item{encode_sets}{whether set names (column in input data) should be encoded as numbers (set to TRUE to overcome R limitations of max 10 kB for variable names for datasets with huge numbers of sets); default TRUE for upset() and FALSE for upset_data().}
 
 \item{matrix}{the intersection matrix plot}
+
+\item{add_custom_rows}{list of custom ggplot objects to add to annotations. needed to add plots that use different data than the upset.}
 
 \item{...}{
   Arguments passed on to \code{\link[=upset_data]{upset_data}}

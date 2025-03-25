@@ -753,7 +753,6 @@ extract_stat_params = function(geom) {
     stat_params
 }
 
-
 `*.gg` = function(a, b) {
 
     a_params = c(a$aes_params, a$geom_params, extract_stat_params(a))
@@ -915,6 +914,18 @@ solve_mode = function (mode) {
     )
 }
 
+#' Get upset data
+#' @export
+get_upset_data <- function(data,
+                           intersect,
+                           mode='distinct',
+                           encode_sets=TRUE,
+                           ...) {
+  mode <- solve_mode(mode)
+  data <- upset_data(data, intersect, mode=mode, encode_sets=encode_sets, ...)
+  return(data)
+}
+
 #' Compose an UpSet plot
 #' @inheritParams upset_data
 #' @param name the label shown below the intersection matrix
@@ -934,6 +945,7 @@ solve_mode = function (mode) {
 #' @param wrap whether the plot should be wrapped into a group (makes adding a tile/combining with other plots easier)
 #' @param mode region selection mode for computing the number of elements in intersection fragment. See `get_size_mode()` for accepted values.
 #' @param encode_sets whether set names (column in input data) should be encoded as numbers (set to TRUE to overcome R limitations of max 10 kB for variable names for datasets with huge numbers of sets); default TRUE for upset() and FALSE for upset_data().
+#' @param add_custom_rows list of custom ggplot objects to add to annotations. needed to add plots that use different data than the upset.
 #' @inheritDotParams upset_data
 #' @export
 upset = function(
@@ -954,6 +966,7 @@ upset = function(
   guides=NULL,
   encode_sets=TRUE,
   matrix=intersection_matrix(),
+  add_custom_rows=list(),
   ...
 ) {
   if (!is.null(guides)) {
@@ -1128,28 +1141,20 @@ upset = function(
 
   for (name in names(annotations)) {
     annotation = annotations[[name]]
-
     geoms = annotation$geom
-
     annotation_mode = mode
-
     for (layer in annotation$layers) {
         if (inherits(layer$stat, 'StatMode')) {
             annotation_mode = layer$stat_params$mode
         }
     }
-
     annotation_data = data$with_sizes[data$with_sizes[get_mode_presence(annotation_mode, symbol=FALSE)] == 1, ]
-
     if (!inherits(geoms, 'list')) {
         geoms = list(geoms)
     }
-
     annotation_queries = intersect_queries(queries_for(queries, name), data)
-
     if (nrow(annotation_queries) != 0) {
         highlight_data = merge(annotation_data, annotation_queries, by.x='intersection', by.y='intersect', all.y=TRUE)
-
         if (is.null(annotation$highlight_geom)) {
             highlight_geom = geoms
         } else {
@@ -1158,32 +1163,26 @@ upset = function(
                 highlight_geom = list(highlight_geom)
             }
         }
-
         geoms_plus_highlights = add_highlights_to_geoms(geoms, highlight_geom, highlight_data, annotation_queries)
     } else {
         geoms_plus_highlights = geoms
     }
-
     if (!is.null(annotation$top_geom)) {
         geoms_plus_highlights = c(geoms_plus_highlights, annotation$top_geom)
     }
-
     if (name %in% names(themes)) {
       selected_theme = themes[[name]]
     } else {
       selected_theme = themes[['default']]
     }
-
     if (!is.null(guides) && guides == 'over' && ceiling(length(annotations) / 2) == annotation_number) {
         spacer = guide_area()
     } else {
         spacer = plot_spacer()
     }
-
     if (show_overall_sizes && !is_set_size_on_the_right) {
         rows[[length(rows) + 1]] = spacer
     }
-
     if (is.ggplot(annotation)) {
         if (is.null(annotation$mapping$x)) {
             annotation = annotation + aes(x=intersection)
@@ -1209,21 +1208,17 @@ upset = function(
     } else {
         annotation_plot = ggplot(annotation_data, annotation$aes) + selected_theme + xlab(name) + ylab(name)
     }
-
     user_layers = annotation_plot$layers
     annotation_plot$layers = c()
     annotation_plot = annotation_plot + geoms_plus_highlights
     annotation_plot$layers = c(annotation_plot$layers, user_layers)
-
     rows[[length(rows) + 1]] = (
       annotation_plot
       + scale_intersections
     )
-
     if (show_overall_sizes && is_set_size_on_the_right) {
         rows[[length(rows) + 1]] = spacer
     }
-
     annotation_number =  annotation_number + 1
   }
 
@@ -1282,7 +1277,6 @@ upset = function(
             )
         )
       )
-
       if (is_set_size_on_the_right) {
           matrix_row = list(intersections_matrix, overall_sizes)
       } else {
@@ -1292,15 +1286,25 @@ upset = function(
   } else {
       matrix_row = list(intersections_matrix)
   }
-
-  if (length(rows)) {
-    annotations_plots = Reduce(f='+', rows)
-    matrix_row = c(list(annotations_plots), matrix_row)
-  } else {
-    annotations_plots = list()
+  custom_rows <- lapply(add_custom_rows, \(x) {
+    if (is_set_size_on_the_right) { 
+      p <- x + plot_spacer() 
+    } else { 
+        p <- plot_spacer() + x }
+    return(p)
+    })
+  if (length(add_custom_rows) > 0) {
+    rows <- c(custom_rows, rows)
   }
-
-  plot = Reduce(f='+', matrix_row)
+  
+  if (length(rows) > 0) {
+    annotations_plots = Reduce(f='+', rows)
+    matrix_row2= c(list(annotations_plots), matrix_row)
+  } else {
+    annotations_plots <- list()
+  }
+  plot = Reduce(f='+', matrix_row2)
+  
 
   if (show_overall_sizes) {
       if (is_set_size_on_the_right) {
@@ -1316,20 +1320,19 @@ upset = function(
       guides = 'collect'  # guide_area() works with collect only
   }
 
-  plot = plot + plot_layout(
+  plot2 = plot + plot_layout(
     widths=width_ratios,
     ncol=1 + ifelse(show_overall_sizes, 1, 0),
-    nrow=length(annotations) + 1,
+    nrow=length(annotations_plots) + 1,
     heights=c(
-      rep(1, length(annotations)),
+      rep(1, length(annotations_plots)),
       height_ratio
     ),
     guides=guides
   )
 
   if (wrap) {
-    wrap_elements(plot)
-  } else {
-    plot
+    plot2 <- wrap_elements(plot2)
   }
+  return(plot2)
 }
