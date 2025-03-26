@@ -23,6 +23,7 @@ upset(
   encode_sets = TRUE,
   matrix = intersection_matrix(),
   add_custom_rows = list(),
+  custom_heights = NULL,
   ...
 )
 }
@@ -66,6 +67,8 @@ upset(
 \item{matrix}{the intersection matrix plot}
 
 \item{add_custom_rows}{list of custom ggplot objects to add to annotations. needed to add plots that use different data than the upset.}
+
+\item{custom_heights}{vector to override heights of all plots}
 
 \item{...}{
   Arguments passed on to \code{\link[=upset_data]{upset_data}}

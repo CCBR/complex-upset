@@ -946,6 +946,7 @@ get_upset_data <- function(data,
 #' @param mode region selection mode for computing the number of elements in intersection fragment. See `get_size_mode()` for accepted values.
 #' @param encode_sets whether set names (column in input data) should be encoded as numbers (set to TRUE to overcome R limitations of max 10 kB for variable names for datasets with huge numbers of sets); default TRUE for upset() and FALSE for upset_data().
 #' @param add_custom_rows list of custom ggplot objects to add to annotations. needed to add plots that use different data than the upset.
+#' @param custom_heights vector to override heights of all plots
 #' @inheritDotParams upset_data
 #' @export
 upset = function(
@@ -967,6 +968,7 @@ upset = function(
   encode_sets=TRUE,
   matrix=intersection_matrix(),
   add_custom_rows=list(),
+  custom_heights = NULL,
   ...
 ) {
   if (!is.null(guides)) {
@@ -1129,7 +1131,8 @@ upset = function(
           )
     )
     + themes$intersections_matrix
-  )
+  ) + theme(
+    axis.title.y=element_blank())
 
   rows = list()
 
@@ -1299,9 +1302,10 @@ upset = function(
   
   if (length(rows) > 0) {
     annotations_plots = Reduce(f='+', rows)
-    matrix_row2= c(list(annotations_plots), matrix_row)
+    matrix_row2 <- c(list(annotations_plots), matrix_row)
   } else {
     annotations_plots <- list()
+    matrix_row2 <- matrix_row
   }
   plot = Reduce(f='+', matrix_row2)
   
@@ -1319,15 +1323,22 @@ upset = function(
   if (!is.null(guides) && guides == 'over') {
       guides = 'collect'  # guide_area() works with collect only
   }
+  
+  plot_heights <- c(
+    rep(1, length(annotations_plots)),
+    height_ratio
+  )
+  if (!is.null(custom_heights)) {
+    message(paste('default plot heights', paste(plot_heights, collapse=', ')))
+    assertthat::assert_that(length(plot_heights) == length(custom_heights))
+    plot_heights <- custom_heights
+  }
 
-  plot2 = plot + plot_layout(
+  plot2 <- plot + plot_layout(
     widths=width_ratios,
     ncol=1 + ifelse(show_overall_sizes, 1, 0),
-    nrow=length(annotations_plots) + 1,
-    heights=c(
-      rep(1, length(annotations_plots)),
-      height_ratio
-    ),
+    nrow=1 + length(annotations_plots),
+    heights=plot_heights,
     guides=guides
   )
 
